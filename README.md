@@ -107,8 +107,8 @@ Secure, cross‑platform desktop app to manage Ark Survival Ascended dedicated s
 
 ## Dev Setup
 ```powershell
-npm install --prefix "C:\\Users\\cowar\\OneDrive\\Desktop\\Ark Server Command"
-npm run dev --prefix "C:\\Users\\cowar\\OneDrive\\Desktop\\Ark Server Command"
+npm install
+npm run dev
 ```
 
 ## SteamCMD (Install/Update)
@@ -117,5 +117,5 @@ npm run dev --prefix "C:\\Users\\cowar\\OneDrive\\Desktop\\Ark Server Command"
 
 ## Packaging
 ```powershell
-npm run dist --prefix "C:\\Users\\cowar\\OneDrive\\Desktop\\Ark Server Command"
+npm run dist
 ```
