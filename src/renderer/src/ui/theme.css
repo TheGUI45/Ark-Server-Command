@@ -1,0 +1,121 @@
+/* Global Dark Theme */
+:root {
+  --bg: #1e1e1e;
+  --bg-alt: #1b1b1b;
+  --bg-panel: #222;
+  --bg-accent: #0e639c;
+  --border: #333;
+  --border-alt: #444;
+  --text: #eaeaea;
+  --text-dim: #b3b3b3;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+  --focus: #61dafb;
+  --danger: #d27d2c;
+  --ok: #4caf50;
+  --font-stack: 'Segoe UI', Arial, sans-serif;
+  --spacing-xs: 4px;
+  --spacing-sm: 6px;
+  --spacing: 10px;
+}
+
+html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-stack); }
+body { margin: 0; }
+
+.app-root { display:flex; flex-direction:column; height:100%; }
+.app-header { border-bottom:1px solid var(--border); background: var(--bg-alt); }
+.app-header__row { display:flex; align-items:center; justify-content:space-between; padding: var(--spacing) 16px; }
+.app-title { margin:0; font-size:18px; font-weight:600; letter-spacing:.5px; }
+.nav-bar { display:flex; gap:6px; padding:0 8px 6px 8px; }
+.app-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  margin-right: 12px;
+  box-shadow: 0 0 0 1px #222, 0 2px 6px rgba(0,0,0,0.4);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.nav-btn { padding:10px 14px; background:transparent; color:var(--text); border:none; cursor:pointer; font-weight:400; position:relative; }
+.nav-btn--active { background: var(--bg-panel); font-weight:600; }
+.nav-btn--active::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background: var(--focus); }
+.main-content { flex:1; overflow:auto; padding:16px; }
+
+/* Panels */
+.panel { background: var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius); padding: var(--spacing); display:flex; flex-direction:column; gap:var(--spacing-sm); box-shadow:var(--shadow-sm); }
+.panel--tight { gap:var(--spacing-xs); }
+.panel-title { margin:0 0 4px 0; font-size:14px; font-weight:600; }
+
+.grid-panels { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px; align-items:start; }
+
+/* Forms */
+label { font-size:12px; display:flex; flex-direction:column; gap:4px; }
+input, select, textarea { background:#252526; color:var(--text); border:1px solid var(--border-alt); border-radius:var(--radius-sm); padding:6px 8px; font-family:inherit; font-size:12px; }
+input:focus, select:focus, textarea:focus { outline:1px solid var(--focus); }
+textarea { resize:vertical; }
+
+/* Buttons */
+button { background: var(--bg-panel); color: var(--text); border:1px solid var(--border-alt); border-radius:var(--radius-sm); padding:6px 12px; font-size:12px; cursor:pointer; transition: background .15s, border-color .15s; }
+button:hover { background:#2e2e2e; }
+button:active { background:#0e639c; border-color:#0e639c; }
+button[disabled] { opacity:.5; cursor:not-allowed; }
+.btn-primary { background: var(--bg-accent); border-color: var(--bg-accent); }
+.btn-primary:hover { background:#1176b8; }
+
+/* Utility */
+.muted { opacity:.6; }
+.inline { display:inline-flex; align-items:center; gap:6px; }
+.row { display:flex; gap:8px; }
+.col { display:flex; flex-direction:column; gap:8px; }
+.scroll { overflow:auto; }
+.badge { background:#333; padding:2px 6px; border-radius:var(--radius-sm); font-size:10px; }
+.badge-ok { background:var(--ok); color:#fff; }
+.badge-warn { background:var(--danger); color:#fff; }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; }
+th, td { padding:4px 6px; font-size:11px; }
+thead tr { background:#2a2a2a; }
+tbody tr:nth-child(even) { background:#1f1f1f; }
+
+/* Code / pre */
+pre { background:#111; padding:8px; border-radius:var(--radius-sm); border:1px solid #222; font-size:11px; }
+
+/* Scrollbars (WebKit) */
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:#151515; }
+::-webkit-scrollbar-thumb { background:#333; border-radius:10px; }
+::-webkit-scrollbar-thumb:hover { background:#3d3d3d; }
+
+/* Sparkline container override */
+.spark-box { background:#141414; border:1px solid #222; border-radius:3px; }
+
+/* Status ribbons (example) */
+.ribbon { position:relative; padding:4px 8px; font-size:11px; font-weight:600; background:#0e639c; border-radius:var(--radius-sm); }
+.ribbon-danger { background:var(--danger); }
+.ribbon-ok { background:var(--ok); }
+
+/* Panel variants */
+.panel-status { min-height:120px; }
+.panel-chart { min-height:240px; overflow:hidden; }
+.resizable-panel .panel-chart { height:100%; }
+
+/* Drag & drop dashboard */
+.free-layout-canvas { position:relative; min-height:1200px; }
+.dr-panel { background: var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); display:flex; flex-direction:column; }
+.dr-panel.dragging { opacity:.7; cursor:grabbing; }
+.dr-panel.resizing { cursor:nwse-resize; }
+.dr-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 8px; background:#262626; border-bottom:1px solid #333; cursor:grab; user-select:none; font-size:12px; font-weight:600; }
+.dr-title { flex:1; text-transform:capitalize; }
+.dr-reset { background:transparent; border:1px solid #444; color:var(--text); font-size:11px; padding:2px 6px; border-radius:4px; cursor:pointer; }
+.dr-reset:hover { background:#333; }
+.dr-body { flex:1; display:flex; flex-direction:column; padding:6px 8px; overflow:hidden; }
+.dr-resize { position:absolute; right:4px; bottom:4px; width:14px; height:14px; background:linear-gradient(135deg,#2a2a2a 0%,#444 70%); border:1px solid #444; border-radius:4px; cursor:nwse-resize; opacity:.55; }
+.dr-resize:hover { opacity:1; background:#0e639c; }
+
+/* Resizable panels */
+.resizable-panel { position:relative; display:flex; flex-direction:column; }
+.resize-handle { position:absolute; right:6px; bottom:6px; width:14px; height:14px; background:linear-gradient(135deg,#2a2a2a 0%,#444 70%); border:1px solid #444; border-radius:4px; cursor:nwse-resize; opacity:.45; transition:opacity .15s, background .15s; }
+.resize-handle.active:hover { opacity:.95; background:#0e639c; }
+.resize-handle.inactive { cursor:not-allowed; opacity:.2; }
