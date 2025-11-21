@@ -89,9 +89,16 @@ function createWindow() {
   // Resolve icon path safely (package build may place assets inside asar)
   let iconPath: string | undefined;
   try {
-    const candidate = path.join(app.getAppPath(), 'build', 'icon.ico');
-    const alt = path.join(process.resourcesPath, 'build', 'icon.ico');
-    if (fs.existsSync(candidate)) iconPath = candidate; else if (fs.existsSync(alt)) iconPath = alt;
+    const icoCandidate = path.join(app.getAppPath(), 'build', 'icon.ico');
+    const pngCandidate = path.join(app.getAppPath(), 'build', 'icon.png');
+    const icoAlt = path.join(process.resourcesPath, 'build', 'icon.ico');
+    const pngAlt = path.join(process.resourcesPath, 'build', 'icon.png');
+    
+    // Prefer PNG for better quality, fallback to ICO
+    if (fs.existsSync(pngCandidate)) iconPath = pngCandidate;
+    else if (fs.existsSync(icoCandidate)) iconPath = icoCandidate;
+    else if (fs.existsSync(pngAlt)) iconPath = pngAlt;
+    else if (fs.existsSync(icoAlt)) iconPath = icoAlt;
   } catch {}
   const win = new BrowserWindow({
     width: 1280,
