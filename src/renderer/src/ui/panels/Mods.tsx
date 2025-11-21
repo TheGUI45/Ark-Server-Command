@@ -11,6 +11,10 @@ export function Mods() {
   const [cfQuery, setCfQuery] = useState('');
   const [cfResults, setCfResults] = useState<Array<any>>([]);
   const [cfBusy, setCfBusy] = useState(false);
+  // Live suggestions (lightweight search)
+  const [cfSuggest, setCfSuggest] = useState<Array<any>>([]);
+  const [cfSuggestActive, setCfSuggestActive] = useState(false);
+  const [cfSuggestIndex, setCfSuggestIndex] = useState<number>(-1);
   const [offlineMode, setOfflineMode] = useState<boolean>(true);
   const [curseforgeApiKey, setCurseforgeApiKey] = useState<string>('');
   const [mainProcessOffline, setMainProcessOffline] = useState<boolean | null>(null);
@@ -95,6 +99,51 @@ export function Mods() {
       else if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT/i.test(msg)) friendly = 'Network error contacting CurseForge. Check connection.';
       setCfResults([{ error: friendly }]);
     } finally { setCfBusy(false); }
+  };
+
+  // Debounced suggestions effect
+  useEffect(() => {
+    const q = cfQuery.trim();
+    if (!q || q.length < 2 || offlineMode || !curseforgeApiKey) {
+      setCfSuggest([]); setCfSuggestIndex(-1); return;
+    }
+    setCfSuggestActive(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await (window as any).api.curseforge.searchMods(q, 8);
+        setCfSuggest(res.slice(0, 8));
+        setCfSuggestIndex(-1);
+      } catch (e:any) {
+        setCfSuggest([]);
+      }
+    }, 260); // debounce
+    return () => clearTimeout(handle);
+  }, [cfQuery, offlineMode, curseforgeApiKey]);
+
+  const acceptSuggestion = (mod: any) => {
+    if (!mod) return;
+    setCfQuery(mod.name || '');
+    setCfSuggest([]); setCfSuggestIndex(-1); setCfSuggestActive(false);
+  };
+
+  const onQueryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!cfSuggest.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setCfSuggestIndex(i => (i + 1) >= cfSuggest.length ? 0 : i + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setCfSuggestIndex(i => i <= 0 ? cfSuggest.length - 1 : i - 1);
+    } else if (e.key === 'Enter') {
+      if (cfSuggestIndex >= 0) {
+        e.preventDefault();
+        acceptSuggestion(cfSuggest[cfSuggestIndex]);
+        // auto run main search
+        setTimeout(()=>searchCurseForge(), 10);
+      }
+    } else if (e.key === 'Escape') {
+      setCfSuggest([]); setCfSuggestIndex(-1);
+    }
   };
 
   const toggleDetails = async (id: number) => {
@@ -466,7 +515,23 @@ export function Mods() {
           <span style={{ opacity:.6 }}>Updated {statusRefreshedAt? new Date(statusRefreshedAt).toLocaleTimeString(): '—'}</span>
         </div>
         <label>Query
-          <input style={{ width: '100%' }} value={cfQuery} onChange={(e) => setCfQuery(e.target.value)} placeholder="Structures" />
+          <div style={{ position:'relative' }}>
+            <input style={{ width: '100%' }} value={cfQuery} onChange={(e) => { setCfQuery(e.target.value); setCfSuggestActive(true); }} onKeyDown={onQueryKeyDown} onBlur={()=> setTimeout(()=>{ setCfSuggestActive(false); }, 160)} placeholder="Structures" />
+            {cfSuggestActive && cfSuggest.length > 0 && (
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#1d2024', border:'1px solid #333', borderRadius:4, marginTop:2, zIndex:50, boxShadow:'0 4px 10px rgba(0,0,0,0.5)', maxHeight:220, overflowY:'auto' }}>
+                {cfSuggest.map((s,i)=> (
+                  <div key={s.id} style={{ padding:'6px 8px', cursor:'pointer', background: cfSuggestIndex===i? '#283038':'transparent' }}
+                    onMouseDown={(e)=>{ e.preventDefault(); }}
+                    onClick={()=>{ acceptSuggestion(s); searchCurseForge(); }}
+                    onMouseEnter={()=> setCfSuggestIndex(i)}
+                  >
+                    <div style={{ fontSize:12, fontWeight:600 }}>{s.name}</div>
+                    <div style={{ fontSize:11, opacity:.65, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.summary}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </label>
         <div>
           <button disabled={cfBusy || offlineMode || !curseforgeApiKey} onClick={searchCurseForge}>Search CurseForge</button>

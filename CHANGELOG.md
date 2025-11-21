@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 ## [0.2.0] - 2025-11-21
+## [0.2.1] - 2025-11-21
+### Added
+- Claude AI integration: settings for enabling feature, storing Anthropic API key, and overriding model id.
+- ClaudePanel: basic prompt input with single-shot completion and streaming token updates.
+- Main process `ClaudeService` with simple rate limiting, non-stream and streaming IPC (`claude:complete`, `claude:stream`).
+- Preload bridge exposure (`api.claude.complete`, `api.claude.stream`).
+
+### Security
+- API key stored locally (settings.json). Never logged to console. Offline Mode blocks Claude requests.
+
+### Notes
+- Default model id set to `claude-sonnet-4.5` (adjustable under Settings > Claude AI).
+- Streaming parses SSE events and appends text deltas in real time.
+
 ### Added
 - Mods panel: CurseForge-style hover previews with thumbnail, authors, downloads, categories, latest file, automatic overflow handling and fade animations.
 - Mods panel: Steam workshop mod hover info (size, file count, presence) with 30‑minute disk caching to reduce recomputation.

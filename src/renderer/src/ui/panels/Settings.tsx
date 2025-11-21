@@ -20,6 +20,10 @@ export function SettingsPanel() {
   const [saveCleanupRetentionDays, setSaveCleanupRetentionDays] = useState(14);
   const [saveCleanupMaxWorldFiles, setSaveCleanupMaxWorldFiles] = useState(5);
   const [saveCleanupCron, setSaveCleanupCron] = useState('30 2 * * *');
+  // Claude / Anthropic settings
+  const [claudeEnabled, setClaudeEnabled] = useState(false);
+  const [anthropicApiKey, setAnthropicApiKey] = useState('');
+  const [claudeModel, setClaudeModel] = useState('claude-sonnet-4.5');
   const [saved, setSaved] = useState('');
   const [webApiTestPath, setWebApiTestPath] = useState('status');
   const [webApiTestResult, setWebApiTestResult] = useState<string>('');
@@ -55,6 +59,9 @@ export function SettingsPanel() {
       setSaveCleanupRetentionDays(s.saveCleanupRetentionDays ?? 14);
       setSaveCleanupMaxWorldFiles(s.saveCleanupMaxWorldFiles ?? 5);
       setSaveCleanupCron(s.saveCleanupCron || '30 2 * * *');
+      setClaudeEnabled(!!s.claudeEnabled);
+      setAnthropicApiKey(s.anthropicApiKey || '');
+      setClaudeModel(s.claudeModel || 'claude-sonnet-4.5');
     }).catch((e: any) => setBridgeError('Failed to load settings: ' + String(e?.message || e)));
     api.token?.get().then((t: any) => { if (t && typeof t.present === 'boolean') setWebApiTokenPresent(!!t.present); }).catch(()=>{});
     // subscribe to offline mode changes broadcast from main process
@@ -91,6 +98,9 @@ export function SettingsPanel() {
         defaultWorkshopAppId,
         // offlineMode persisted by dedicated call above
         curseforgeApiKey: curseforgeApiKey || undefined,
+        anthropicApiKey: anthropicApiKey || undefined,
+        claudeEnabled: !!claudeEnabled,
+        claudeModel: claudeModel || undefined,
         webApiBaseUrl,
         autoUpdateEnabled,
         autoUpdateCron,
@@ -253,6 +263,23 @@ export function SettingsPanel() {
           <input style={{ width:'100%' }} value={curseforgeApiKey} onChange={(e)=>setCurseforgeApiKey(e.target.value)} placeholder="Enter API Key (kept locally)" />
           <small>Used for querying CurseForge mods. Stored only locally. Leave blank to disable CurseForge search.</small>
         </div>
+        <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
+          <legend style={{ padding:'0 6px', fontSize:12 }}>Claude AI</legend>
+          <label style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <input type="checkbox" checked={claudeEnabled} onChange={(e)=>setClaudeEnabled(e.target.checked)} /> Enable Claude Integration
+          </label>
+          <div style={{ marginTop:8 }}>
+            <label>Anthropic API Key</label>
+            <input type="password" style={{ width:'100%' }} value={anthropicApiKey} onChange={(e)=>setAnthropicApiKey(e.target.value)} placeholder={anthropicApiKey ? 'Key set (enter to replace)' : 'Enter API Key'} />
+            <small>Stored locally only. Required for Claude API calls. Leave blank to disable.</small>
+          </div>
+            <div style={{ marginTop:8 }}>
+              <label>Model Override</label>
+              <input style={{ width:'100%' }} value={claudeModel} onChange={(e)=>setClaudeModel(e.target.value)} placeholder="claude-sonnet-4.5" />
+              <small>Advanced: override default model id. Ensure account access.</small>
+            </div>
+          <div style={{ marginTop:4, fontSize:11, opacity:.7 }}>Use Claude panel to chat or stream responses. Offline Mode blocks requests.</div>
+        </fieldset>
         <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
           <legend style={{ padding:'0 6px', fontSize:12 }}>Auto Update</legend>
           <label style={{ display:'flex', alignItems:'center', gap:8 }}>

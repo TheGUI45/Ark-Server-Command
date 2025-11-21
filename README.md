@@ -101,6 +101,42 @@ Next Steps
 - Enhanced INI schema editing/validation
 - Update service for server version checks
 - Automated cluster transfer management
+# Claude AI Integration
+## CurseForge Mod Suggestions
+While typing in the CurseForge Query field (≥2 characters, API key set, Online mode), a live suggestion list appears:
+- Up to 8 lightweight results (debounced ~260ms) showing name + summary snippet.
+- Navigate with Arrow Up/Down and press Enter to select; or click with the mouse.
+- Selecting a suggestion auto-populates the query and runs a full search.
+- Escape closes the list; focusing away hides it after a short delay.
+
+Graceful Degradation:
+- Offline Mode or missing API key disables suggestions automatically.
+- Errors during suggestion fetch silently clear the list without interrupting typing.
+
+The app includes optional Claude (Anthropic) integration for administrative assistance and mod management brainstorming.
+
+Enabling Claude:
+1. Obtain an Anthropic API key with access to the desired Sonnet model.
+2. Open Settings > Claude AI.
+3. Check "Enable Claude Integration" and paste your API key.
+4. (Optional) Adjust the model override (default: `claude-sonnet-4.5`).
+5. Save Settings.
+6. Open the "Claude AI" panel to run single completions or live streaming responses.
+
+Features:
+- Single response (`Complete`) or streaming tokens (`Stream`).
+- System prompt customization per session.
+- Local-only key storage; never logged or transmitted beyond Anthropic API.
+- Offline Mode instantly blocks all Claude requests.
+
+Basic Rate Limiting:
+- Up to 20 calls per minute (shared between complete + stream) to prevent runaway usage.
+
+Security Notes:
+- API key stored in `settings.json` in the Electron userData directory.
+- No key exposure in renderer state once saved (input cleared only for Web API token; Claude key remains but can be replaced).
+- Errors truncate remote messages to 400 chars for safety.
+
 # ASA Server Manager (Electron)
 
 Secure, cross‑platform desktop app to manage Ark Survival Ascended dedicated servers. No paywalls.

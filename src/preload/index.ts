@@ -146,6 +146,25 @@ const api = {
     run: () => ipcRenderer.invoke('app:updateFromGit'),
     restart: () => ipcRenderer.invoke('app:restart')
   },
+  claude: {
+    complete: (prompt: string, system?: string, maxTokens?: number) => ipcRenderer.invoke('claude:complete', { prompt, system, maxTokens }),
+    stream: (prompt: string, system: string | undefined, onEvent: (ev: any) => void, maxTokens?: number) => {
+      const jobId = Math.random().toString(36).slice(2);
+      const handler = (_e: any, ev: any) => {
+        if (ev.jobId !== jobId) return;
+        try { onEvent(ev); } catch {}
+        if (ev.type === 'done' || ev.type === 'error') {
+          ipcRenderer.removeListener('claude:streamEvent', handler);
+        }
+      };
+      ipcRenderer.on('claude:streamEvent', handler);
+      ipcRenderer.invoke('claude:stream', { prompt, system, jobId, maxTokens }).catch((e: any) => {
+        onEvent({ jobId, type: 'error', error: String(e?.message || e) });
+        ipcRenderer.removeListener('claude:streamEvent', handler);
+      });
+      return () => ipcRenderer.removeListener('claude:streamEvent', handler);
+    }
+  },
   saves: {
     cleanup: (serverId: string) => ipcRenderer.invoke('saves:cleanup', serverId)
   }

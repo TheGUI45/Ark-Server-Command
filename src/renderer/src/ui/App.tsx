@@ -2,6 +2,7 @@ import React, { useState, Component, ReactNode, useEffect } from 'react';
 // Placeholder for global error boundary to be added next
 import './theme.css';
 import { Mods } from './panels/Mods';
+import { ClaudePanel } from './panels/Claude';
 import dinoIcon from '../assets/dino.png';
 import { SettingsPanel } from './panels/Settings';
 import { BackupsPanel } from './panels/Backups';
@@ -22,7 +23,7 @@ class PanelErrorBoundary extends Component<{ children: ReactNode }, { error?: an
 }
 
 export function App(){
-  const [panel, setPanel] = useState<'dashboard' | 'servers' | 'mods' | 'backups' | 'settings' | 'inisettings'>('dashboard');
+  const [panel, setPanel] = useState<'dashboard' | 'servers' | 'mods' | 'backups' | 'settings' | 'inisettings' | 'ai'>('dashboard');
   const [bridgeOk, setBridgeOk] = useState<boolean | null>(null);
   useEffect(()=>{
     const run = async () => {
@@ -33,7 +34,7 @@ export function App(){
     }; run();
   }, []);
 
-  const NavButton = ({ id, label }: { id: 'dashboard' | 'servers' | 'mods' | 'backups' | 'settings' | 'inisettings'; label: string }) => (
+  const NavButton = ({ id, label }: { id: 'dashboard' | 'servers' | 'mods' | 'backups' | 'settings' | 'inisettings' | 'ai'; label: string }) => (
     <button onClick={() => setPanel(id)} className={panel === id ? 'nav-btn nav-btn--active' : 'nav-btn'}>{label}</button>
   );
 
@@ -50,6 +51,7 @@ export function App(){
           <NavButton id="mods" label="Mods" />
           <NavButton id="backups" label="Backups" />
           <NavButton id="settings" label="Settings" />
+          <NavButton id="ai" label="Claude AI" />
           <NavButton id="inisettings" label="INI Settings" />
         </nav>
       </header>
@@ -62,6 +64,7 @@ export function App(){
           {panel === 'backups' && <BackupsPanel />}
           {panel === 'settings' && <SettingsPanel />}
           {panel === 'inisettings' && <IniSettingsPanel />}
+          {panel === 'ai' && <ClaudePanel />}
         </PanelErrorBoundary>
       </main>
     </div>

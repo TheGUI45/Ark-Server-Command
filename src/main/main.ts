@@ -20,6 +20,7 @@ import { PerformanceService } from './services/PerformanceService.js';
 import { SaveCleanupService } from './services/SaveCleanupService.js';
 import { TokenService } from './services/TokenService.js';
 import { WebApiService } from './services/WebApiService.js';
+import { ClaudeService } from './services/ClaudeService.js';
 
 const steam = new SteamCmdService();
 // Global reference to main window to prevent GC-induced auto close.
@@ -36,6 +37,7 @@ const reports = new ReportsService(() => settings.get().workspaceRoot, () => pro
 const perf = new PerformanceService(() => profiles.list().servers);
 const tokenService = new TokenService();
 const webApi = new WebApiService(() => settings.get(), () => tokenService.get());
+const claude = new ClaudeService(() => settings.get());
 const webApiHistory: Array<{ ts: string; method: string; path: string; ok: boolean; error?: string }> = [];
 function logWebApi(method: string, path: string, ok: boolean, error?: string) {
   webApiHistory.push({ ts: new Date().toISOString(), method, path, ok, error });
@@ -405,6 +407,30 @@ ipcMain.handle('curseforge:getModDetails', async (_e, id: number) => {
   return curseforge.getModDetails(id);
 });
 
+// Claude AI (Anthropic) IPC
+ipcMain.handle('claude:complete', async (_e, args: { prompt: string; system?: string; maxTokens?: number }) => {
+  const s = settings.get();
+  if (s.offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to use Claude.');
+  if (!s.claudeEnabled) throw new Error('Claude feature disabled. Enable in Settings.');
+  if (!s.anthropicApiKey) throw new Error('Anthropic API key not set.');
+  return claude.complete({ prompt: args.prompt, system: args.system, maxTokens: args.maxTokens });
+});
+ipcMain.handle('claude:stream', async (_e, args: { prompt: string; system?: string; jobId: string; maxTokens?: number }) => {
+  const s = settings.get();
+  if (s.offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to use Claude.');
+  if (!s.claudeEnabled) throw new Error('Claude feature disabled. Enable in Settings.');
+  if (!s.anthropicApiKey) throw new Error('Anthropic API key not set.');
+  // Fire-and-forget: streaming events emitted on ipc channel 'claude:streamEvent'
+  claude.stream({ prompt: args.prompt, system: args.system, jobId: args.jobId, maxTokens: args.maxTokens }, (ev) => {
+    try {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('claude:streamEvent', ev);
+      }
+    } catch {}
+  });
+  return { ok: true, jobId: args.jobId };
+});
+
 // Reports IPC
 ipcMain.handle('reports:get', (_e, serverId: string) => reports.get(serverId));
 ipcMain.handle('perf:getServerUsage', async (_e, serverId: string) => perf.getServerUsage(serverId));
@@ -437,6 +463,21 @@ ipcMain.handle('app:updateFromGit', async () => {
   if (settings.get().offlineMode) {
     return { ok: false, error: 'Offline Mode enabled. Disable to perform update.' };
   }
+  // Pre-flight: ensure git executable available
+  const preflight = await new Promise<{ ok: boolean; output: string }>((resolve) => {
+    try {
+      const proc = spawn('git', ['--version'], { cwd: appPath });
+      const chunks: string[] = [];
+      proc.stdout.on('data', d => chunks.push(String(d)));
+      proc.stderr.on('data', d => chunks.push(String(d)));
+      proc.on('close', code => resolve({ ok: code === 0, output: chunks.join('').trim() }));
+    } catch (e:any) {
+      resolve({ ok: false, output: 'Spawn failed: ' + String(e?.message||e) });
+    }
+  });
+  if (!preflight.ok) {
+    return { ok: false, error: 'git --version failed. Ensure Git is installed and on PATH. ' + preflight.output };
+  }
   const runGit = (args: string[]) => new Promise<{ code: number|null; output: string }>((resolve) => {
     try {
       const proc = spawn('git', args, { cwd: appPath });
@@ -460,7 +501,7 @@ ipcMain.handle('app:updateFromGit', async () => {
       return { ok: false, step: s.step, output: res.output, code: res.code };
     }
   }
-  return { ok: true, steps };
+  return { ok: true, preflight: preflight.output, steps };
 });
 
 // App restart helper (will relaunch and exit)

@@ -7,6 +7,9 @@ export type AppSettings = {
   defaultWorkshopAppId: number; // e.g., 2399830 (ASA Workshop)
   offlineMode: boolean; // when true, block any network-dependent operations
   curseforgeApiKey?: string; // optional API key for CurseForge requests
+  anthropicApiKey?: string; // optional API key for Anthropic Claude requests
+  claudeEnabled: boolean; // feature toggle for Claude integration
+  claudeModel?: string; // override model id (defaults to latest Sonnet variant)
   webApiBaseUrl?: string; // optional base URL for custom Web API
   autoUpdateEnabled: boolean; // enables scheduled server + mod updates
   autoUpdateCron: string; // cron expression controlling auto update frequency
@@ -21,6 +24,9 @@ const DEFAULTS: AppSettings = {
   defaultWorkshopAppId: 2399830,
   offlineMode: true,
   curseforgeApiKey: undefined,
+  anthropicApiKey: undefined,
+  claudeEnabled: false,
+  claudeModel: 'claude-sonnet-4.5',
   webApiBaseUrl: '',
   autoUpdateEnabled: false,
   autoUpdateCron: '0 * * * *', // hourly by default
