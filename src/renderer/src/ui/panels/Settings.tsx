@@ -329,11 +329,21 @@ export function SettingsPanel() {
                 const res = await (window as any).api.appupdate.run();
                 if (!res.ok) {
                   setAppUpdateOk(false);
-                  setAppUpdateLog(`[${res.step||'error'}] code=${res.code} \n${res.output || res.error}`);
+                  let advice = '';
+                  const out = (res.output||res.error||'').toLowerCase();
+                  if (/git --version failed/i.test(res.error||'') || /not recognized/i.test(out)) {
+                    advice = '\nHint: Git is not available on PATH. Install Git (https://git-scm.com/downloads) and reopen the app.';
+                  } else if (/offline mode/i.test(out)) {
+                    advice = '\nHint: Disable Offline Mode in Settings to run updates.';
+                  } else if (/repository not found|\.git missing/i.test(out)) {
+                    advice = '\nHint: Packaged builds are read-only. Run from a cloned Git repo for update.';
+                  }
+                  setAppUpdateLog(`[${res.step||'error'}] code=${res.code} \n${res.output || res.error}${advice}`);
                 } else {
                   setAppUpdateOk(true);
+                  const preflight = res.preflight ? `Git detected: ${res.preflight}\n\n` : '';
                   const logLines = res.steps.map((s:any)=>`> git ${s.args.join(' ')}\n${s.result.output.trim()}`).join('\n\n');
-                  setAppUpdateLog(logLines);
+                  setAppUpdateLog(preflight + logLines);
                 }
               } catch (e:any) {
                 setAppUpdateOk(false); setAppUpdateLog('Exception: ' + String(e?.message||e));

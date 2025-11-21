@@ -517,6 +517,12 @@ export function Mods() {
         <label>Query
           <div style={{ position:'relative' }}>
             <input style={{ width: '100%' }} value={cfQuery} onChange={(e) => { setCfQuery(e.target.value); setCfSuggestActive(true); }} onKeyDown={onQueryKeyDown} onBlur={()=> setTimeout(()=>{ setCfSuggestActive(false); }, 160)} placeholder="Structures" />
+            {/* Disabled reason banner */}
+            {(!curseforgeApiKey || offlineMode) && cfQuery.length>0 && cfQuery.length<2 && (
+              <div style={{ position:'absolute', top:'50%', right:8, transform:'translateY(-50%)', fontSize:10, opacity:.6 }}>
+                {offlineMode ? 'Offline: suggestions disabled' : 'Key missing: suggestions disabled'}
+              </div>
+            )}
             {cfSuggestActive && cfSuggest.length > 0 && (
               <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#1d2024', border:'1px solid #333', borderRadius:4, marginTop:2, zIndex:50, boxShadow:'0 4px 10px rgba(0,0,0,0.5)', maxHeight:220, overflowY:'auto' }}>
                 {cfSuggest.map((s,i)=> (
