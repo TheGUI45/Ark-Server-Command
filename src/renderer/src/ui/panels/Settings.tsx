@@ -264,6 +264,41 @@ export function SettingsPanel() {
           <small>Used for querying CurseForge mods. Stored only locally. Leave blank to disable CurseForge search.</small>
         </div>
         <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
+          <legend style={{ padding:'0 6px', fontSize:12 }}>Application Update</legend>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            <button disabled={appUpdateBusy || offlineMode} onClick={async ()=>{
+              setAppUpdateBusy(true); setAppUpdateLog(''); setAppUpdateOk(null);
+              try {
+                const res = await (window as any).api.appupdate.run();
+                if (!res.ok) {
+                  setAppUpdateOk(false);
+                  let advice = '';
+                  const out = (res.output||res.error||'').toLowerCase();
+                  if (/git --version failed/i.test(res.error||'') || /not recognized/i.test(out)) {
+                    advice = '\nHint: Git is not available on PATH. Install Git (https://git-scm.com/downloads) and reopen the app.';
+                  } else if (/offline mode/i.test(out)) {
+                    advice = '\nHint: Disable Offline Mode in Settings to run updates.';
+                  } else if (/repository not found|\.git missing/i.test(out)) {
+                    advice = '\nHint: Packaged builds are read-only. Run from a cloned Git repo for update.';
+                  }
+                  setAppUpdateLog(`[${res.step||'error'}] code=${res.code} \n${res.output || res.error}${advice}`);
+                } else {
+                  setAppUpdateOk(true);
+                  const preflight = res.preflight ? `Git detected: ${res.preflight}\n\n` : '';
+                  const logLines = res.steps.map((s:any)=>`> git ${s.args.join(' ')}\n${s.result.output.trim()}`).join('\n\n');
+                  setAppUpdateLog(preflight + logLines);
+                }
+              } catch (e:any) {
+                setAppUpdateOk(false); setAppUpdateLog('Exception: ' + String(e?.message||e));
+              } finally { setAppUpdateBusy(false); }
+            }}>{appUpdateBusy ? 'Updating…' : 'Update from Git'}</button>
+            <button disabled={appUpdateBusy || !appUpdateOk} onClick={async ()=>{ const r = await (window as any).api.appupdate.restart(); if(!r.ok) alert('Restart failed: '+r.error); }}>Restart App</button>
+            {offlineMode && <span style={{ fontSize:11, opacity:.7 }}>Offline Mode blocks update.</span>}
+          </div>
+          <small style={{ display:'block', marginTop:4 }}>Runs git fetch --all --prune and git pull --rebase in application directory (development/unpacked only).</small>
+          {appUpdateLog && <pre style={{ marginTop:8, maxHeight:200, overflow:'auto', background:'#111', padding:8, fontSize:11, whiteSpace:'pre-wrap' }}>{appUpdateLog}</pre>}
+        </fieldset>
+        <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
           <legend style={{ padding:'0 6px', fontSize:12 }}>Claude AI</legend>
           <label style={{ display:'flex', alignItems:'center', gap:8 }}>
             <input type="checkbox" checked={claudeEnabled} onChange={(e)=>setClaudeEnabled(e.target.checked)} /> Enable Claude Integration
@@ -320,41 +355,6 @@ export function SettingsPanel() {
           <button className="btn-primary" onClick={save}>Save Settings</button>
           <span style={{ marginLeft: 8, opacity: 0.7 }}>{saved}</span>
         </div>
-        <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
-          <legend style={{ padding:'0 6px', fontSize:12 }}>Application Update</legend>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-            <button disabled={appUpdateBusy || offlineMode} onClick={async ()=>{
-              setAppUpdateBusy(true); setAppUpdateLog(''); setAppUpdateOk(null);
-              try {
-                const res = await (window as any).api.appupdate.run();
-                if (!res.ok) {
-                  setAppUpdateOk(false);
-                  let advice = '';
-                  const out = (res.output||res.error||'').toLowerCase();
-                  if (/git --version failed/i.test(res.error||'') || /not recognized/i.test(out)) {
-                    advice = '\nHint: Git is not available on PATH. Install Git (https://git-scm.com/downloads) and reopen the app.';
-                  } else if (/offline mode/i.test(out)) {
-                    advice = '\nHint: Disable Offline Mode in Settings to run updates.';
-                  } else if (/repository not found|\.git missing/i.test(out)) {
-                    advice = '\nHint: Packaged builds are read-only. Run from a cloned Git repo for update.';
-                  }
-                  setAppUpdateLog(`[${res.step||'error'}] code=${res.code} \n${res.output || res.error}${advice}`);
-                } else {
-                  setAppUpdateOk(true);
-                  const preflight = res.preflight ? `Git detected: ${res.preflight}\n\n` : '';
-                  const logLines = res.steps.map((s:any)=>`> git ${s.args.join(' ')}\n${s.result.output.trim()}`).join('\n\n');
-                  setAppUpdateLog(preflight + logLines);
-                }
-              } catch (e:any) {
-                setAppUpdateOk(false); setAppUpdateLog('Exception: ' + String(e?.message||e));
-              } finally { setAppUpdateBusy(false); }
-            }}>{appUpdateBusy ? 'Updating…' : 'Update from Git'}</button>
-            <button disabled={appUpdateBusy || !appUpdateOk} onClick={async ()=>{ const r = await (window as any).api.appupdate.restart(); if(!r.ok) alert('Restart failed: '+r.error); }}>Restart App</button>
-            {offlineMode && <span style={{ fontSize:11, opacity:.7 }}>Offline Mode blocks update.</span>}
-          </div>
-          <small style={{ display:'block', marginTop:4 }}>Runs git fetch --all --prune and git pull --rebase in application directory (development/unpacked only).</small>
-          {appUpdateLog && <pre style={{ marginTop:8, maxHeight:200, overflow:'auto', background:'#111', padding:8, fontSize:11, whiteSpace:'pre-wrap' }}>{appUpdateLog}</pre>}
-        </fieldset>
       </div>
     </section>
   );

@@ -104,7 +104,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
-      devTools: !app.isPackaged,
+      devTools: true, // Enable DevTools for debugging
       spellcheck: false,
     },
   });
@@ -112,6 +112,8 @@ function createWindow() {
   win.on('ready-to-show', () => {
     console.log('[main] ready-to-show');
     win.show();
+    // Open DevTools for debugging
+    win.webContents.openDevTools({ mode: 'detach' });
   });
   win.removeMenu();
   const createdAt = Date.now();
@@ -399,8 +401,10 @@ ipcMain.handle(
 // Analytics IPC
 ipcMain.handle('analytics:get', () => analytics.getMetrics());
 ipcMain.handle('curseforge:searchMods', async (_e, args: { query: string; pageSize?: number }) => {
-  if (settings.get().offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to search CurseForge.');
-  return curseforge.searchMods({ query: args.query, pageSize: args.pageSize });
+  const settingsData = settings.get();
+  if (settingsData.offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to search CurseForge.');
+  return await curseforge.searchMods({ query: args.query, pageSize: args.pageSize });
+  }
 });
 ipcMain.handle('curseforge:getModDetails', async (_e, id: number) => {
   if (settings.get().offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to fetch mod details.');

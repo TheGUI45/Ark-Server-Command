@@ -46,6 +46,7 @@ export function Mods() {
       setAppId(s.defaultWorkshopAppId);
       setOfflineMode(s.offlineMode);
       setCurseforgeApiKey(s.curseforgeApiKey || '');
+      console.log('[Mods] Settings loaded - offlineMode:', s.offlineMode, 'apiKey:', s.curseforgeApiKey ? 'SET (' + s.curseforgeApiKey.length + ' chars)' : 'NOT SET');
       // fetch authoritative offline flag from main process specific endpoint
       if (api.settings.getOfflineMode) {
         api.settings.getOfflineMode().then((v:any)=>{
@@ -540,7 +541,12 @@ export function Mods() {
           </div>
         </label>
         <div>
-          <button disabled={cfBusy || offlineMode || !curseforgeApiKey} onClick={searchCurseForge}>Search CurseForge</button>
+          <button 
+            onClick={searchCurseForge}
+            disabled={cfBusy || offlineMode || !curseforgeApiKey}
+          >
+            Search CurseForge
+          </button>
           <small style={{ display:'block', marginTop:4, opacity:.7 }}>
             {offlineMode ? 'Offline Mode: enable in Settings to query.' : (!curseforgeApiKey ? 'Enter CurseForge API key in Settings to enable search.' : 'Powered by CurseForge API.')}
           </small>
