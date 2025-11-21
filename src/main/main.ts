@@ -404,7 +404,6 @@ ipcMain.handle('curseforge:searchMods', async (_e, args: { query: string; pageSi
   const settingsData = settings.get();
   if (settingsData.offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to search CurseForge.');
   return await curseforge.searchMods({ query: args.query, pageSize: args.pageSize });
-  }
 });
 ipcMain.handle('curseforge:getModDetails', async (_e, id: number) => {
   if (settings.get().offlineMode) throw new Error('Offline Mode enabled. Disable in Settings to fetch mod details.');

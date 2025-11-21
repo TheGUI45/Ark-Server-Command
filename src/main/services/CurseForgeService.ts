@@ -53,8 +53,6 @@ export class CurseForgeService {
     }
     const url = `/v1/mods/search?gameId=${gameId}&pageSize=${pageSize}&searchFilter=${q}`;
     const data: any = await this.apiRequest(url);
-    fs.appendFileSync(logPath, `Response: ${JSON.stringify(data, null, 2)}\n`);
-    console.log('[CurseForge] Response:', JSON.stringify(data, null, 2));
     const mods: CurseForgeModSummary[] = (data.data || []).map((m: any) => ({
       id: m.id,
       name: m.name,
@@ -63,8 +61,6 @@ export class CurseForgeService {
       thumbnailUrl: m.logo?.thumbnailUrl,
       latestFiles: (m.latestFiles || []).slice(0, 3).map((f: any) => ({ displayName: f.displayName, fileId: f.id, fileDate: f.fileDate, fileLength: f.fileLength }))
     }));
-    fs.appendFileSync(logPath, `Parsed mods: ${mods.length}\n`);
-    console.log('[CurseForge] Parsed mods:', mods.length);
     this.cacheResult('search', q, mods);
     return mods;
   }
