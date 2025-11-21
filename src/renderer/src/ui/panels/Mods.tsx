@@ -16,6 +16,13 @@ export function Mods() {
   const [mainProcessOffline, setMainProcessOffline] = useState<boolean | null>(null);
   const [statusRefreshedAt, setStatusRefreshedAt] = useState<number>(0);
   const [details, setDetails] = useState<Record<number, { loading: boolean; error?: string; data?: any }>>({});
+  // Hover preview state (CurseForge style card)
+  const [hoverInfo, setHoverInfo] = useState<null | { projectId?: number; steamModId?: string; x: number; y: number; anchorRect: DOMRect; flipX?: boolean; flipY?: boolean }>(null);
+  const [previewCache, setPreviewCache] = useState<Record<number, { loading: boolean; data?: any; error?: string }>>({});
+  const [steamPreviewCache, setSteamPreviewCache] = useState<Record<string, { loading: boolean; data?: any; error?: string }>>({});
+  const [fadingOut, setFadingOut] = useState(false);
+  const tooltipRef = useRef<HTMLDivElement|null>(null);
+  const previewTimeouts = useRef<Record<string, any>>({});
   // Manual CurseForge fallback (no API key) state
   const [manualProjectId, setManualProjectId] = useState<string>('');
   const [manualAddBusy, setManualAddBusy] = useState<boolean>(false);
@@ -105,6 +112,90 @@ export function Mods() {
       setDetails((d) => ({ ...d, [id]: { loading: false, error: String(e?.message ?? e) } }));
     }
   };
+
+  // Hover preview fetch (lazy on first hover)
+  const ensurePreview = async (projectId: number) => {
+    if (offlineMode) return; // respect offline mode
+    setPreviewCache((c) => c[projectId] ? c : { ...c, [projectId]: { loading: true } });
+    const current = previewCache[projectId];
+    if (current && (current.data || current.error)) return; // already fetched
+    const key = `cf-${projectId}`;
+    if (previewTimeouts.current[key]) {
+      clearTimeout(previewTimeouts.current[key]);
+    }
+    previewTimeouts.current[key] = setTimeout(async () => {
+      try {
+        const data = await (window as any).api.curseforge.getModDetails(projectId);
+        setPreviewCache((c) => ({ ...c, [projectId]: { loading: false, data } }));
+      } catch (e: any) {
+        setPreviewCache((c) => ({ ...c, [projectId]: { loading: false, error: String(e?.message || e) } }));
+      }
+    }, 120); // debounce delay
+  };
+
+  const ensureSteamPreview = async (modId: string) => {
+    if (!serverId) return;
+    setSteamPreviewCache((c)=> c[modId] ? c : { ...c, [modId]: { loading: true } });
+    const current = steamPreviewCache[modId];
+    if (current && (current.data || current.error)) return;
+    const key = `steam-${modId}`;
+    if (previewTimeouts.current[key]) clearTimeout(previewTimeouts.current[key]);
+    previewTimeouts.current[key] = setTimeout(async () => {
+      try {
+        const info = await (window as any).api.mods.getSteamModInfo(serverId, modId);
+        setSteamPreviewCache((c)=> ({ ...c, [modId]: { loading: false, data: info } }));
+      } catch (e:any) {
+        setSteamPreviewCache((c)=> ({ ...c, [modId]: { loading: false, error: String(e?.message||e) } }));
+      }
+    }, 120);
+  };
+
+  const computePlacement = (rect: DOMRect) => {
+    const width = 320; // planned card width
+    const heightGuess = 260; // rough height for overflow calc
+    let x = rect.right + 8;
+    let y = rect.top;
+    let flipX = false;
+    let flipY = false;
+    if (x + width > window.innerWidth - 8) {
+      x = rect.left - width - 8;
+      flipX = true;
+    }
+    if (y + heightGuess > window.innerHeight - 8) {
+      y = Math.max(8, window.innerHeight - heightGuess - 8);
+      flipY = true;
+    }
+    return { x, y, flipX, flipY };
+  };
+  const onHoverEnterSearch = (projectId: number, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = computePlacement(rect);
+    setHoverInfo({ projectId, steamModId: undefined, x: pos.x, y: pos.y, anchorRect: rect, flipX: pos.flipX, flipY: pos.flipY });
+    ensurePreview(projectId);
+  };
+  const onHoverEnterSteam = (modId: string, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = computePlacement(rect);
+    setHoverInfo({ projectId: undefined, steamModId: modId, x: pos.x, y: pos.y, anchorRect: rect, flipX: pos.flipX, flipY: pos.flipY });
+    ensureSteamPreview(modId);
+  };
+  const onHoverLeave = () => {
+    // fade-out animation
+    setFadingOut(true);
+    setTimeout(()=>{ setHoverInfo(null); setFadingOut(false); }, 160);
+  };
+
+  // Recompute vertical placement once content resolves (actual height measurement)
+  useEffect(() => {
+    if (!hoverInfo) return;
+    const el = tooltipRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 8) {
+      const delta = rect.bottom - (window.innerHeight - 8);
+      setHoverInfo(h => h ? { ...h, y: Math.max(8, h.y - delta - 4), flipY: true } : h);
+    }
+  }, [hoverInfo, previewCache, steamPreviewCache]);
 
   const addToProfile = async (mod: any) => {
     try {
@@ -294,8 +385,19 @@ export function Mods() {
                 </tr>
               </thead>
               <tbody>
-                {ordered.map((m,i)=>(
-                  <tr key={m.id} style={{ borderBottom:'1px solid #222', opacity: m.enabled===false?0.5:1 }} draggable onDragStart={onDragStart(i)} onDragOver={onDragOver(i)} onDrop={onDrop(i)}>
+                {ordered.map((m,i)=>{
+                  const projectId = m.type==='curseforge' ? (m.projectId || Number(String(m.id).replace(/^cf:/,''))) : null;
+                  const steamModId = m.type==='steam' ? String(m.id) : null;
+                  return (
+                  <tr key={m.id} style={{ borderBottom:'1px solid #222', opacity: m.enabled===false?0.5:1 }} draggable onDragStart={onDragStart(i)} onDragOver={onDragOver(i)} onDrop={onDrop(i)}
+                    onMouseEnter={
+                      (e)=> {
+                        if (projectId) { onHoverEnterSearch(projectId, e); }
+                        else if (steamModId) { onHoverEnterSteam(steamModId, e); }
+                      }
+                    }
+                    onMouseLeave={onHoverLeave}
+                  >
                     <td style={{ padding:4 }}>{i+1}</td>
                     <td style={{ padding:4, fontFamily:'monospace' }}>{m.id}</td>
                     <td style={{ padding:4 }}>{m.displayName || m.id}</td>
@@ -311,7 +413,7 @@ export function Mods() {
                       <button style={{ marginRight:4 }} onClick={()=>deleteMod(m.id)}>Delete</button>
                     </td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>
@@ -383,7 +485,10 @@ export function Mods() {
         )}
         <div style={{ display: 'grid', gap: 8 }}>
           {cfResults.map((m, i) => (
-            <div key={i} className="panel panel--tight" style={{ padding:8 }}>
+            <div key={i} className="panel panel--tight" style={{ padding:8 }}
+              onMouseEnter={(e)=>m.id && onHoverEnterSearch(m.id, e)}
+              onMouseLeave={onHoverLeave}
+            >
               {m.error && <div style={{ color: '#d27d2c' }}>Error: {m.error}</div>}
               {!m.error && (
                 <>
@@ -420,6 +525,84 @@ export function Mods() {
           ))}
           {cfResults.length === 0 && <div style={{ fontSize:12, opacity:.7 }}>No results yet.</div>}
         </div>
+        {/* Hover Preview Overlay */}
+        {hoverInfo && (
+          <div style={{ position:'fixed', top:hoverInfo.y, left:hoverInfo.x, zIndex:9999, pointerEvents:'none' }}>
+            <div ref={tooltipRef} style={{ width:320, background:'#1d2024', border:'1px solid #333', borderRadius:6, padding:10, boxShadow:'0 4px 14px rgba(0,0,0,0.55)', fontSize:12,
+              animation: fadingOut ? 'fadeOutCF 0.16s ease-out forwards' : 'fadeInCF 0.16s ease-out',
+              transform: `translateY(${hoverInfo.flipY? '4px':'0'}) translateX(${hoverInfo.flipX? '-4px':'0'})`,
+            }}>
+              {/* CurseForge preview */}
+              {hoverInfo.projectId && previewCache[hoverInfo.projectId] && (
+                <>
+                  {previewCache[hoverInfo.projectId].loading && (
+                    <div>
+                      <div className="cf-skel-row" style={{ height:20, width:'60%', marginBottom:8 }} />
+                      <div style={{ display:'flex', gap:10 }}>
+                        <div className="cf-skel-thumb" style={{ width:64, height:64, borderRadius:4 }} />
+                        <div style={{ flex:1 }}>
+                          <div className="cf-skel-row" style={{ height:14, width:'80%', marginBottom:6 }} />
+                          <div className="cf-skel-row" style={{ height:12, width:'50%', marginBottom:6 }} />
+                          <div className="cf-skel-row" style={{ height:12, width:'40%' }} />
+                        </div>
+                      </div>
+                      <div className="cf-skel-row" style={{ height:11, width:'95%', marginTop:12 }} />
+                      <div className="cf-skel-row" style={{ height:11, width:'90%', marginTop:4 }} />
+                    </div>
+                  )}
+                  {previewCache[hoverInfo.projectId].error && <div style={{ color:'#d27d2c' }}>Error: {previewCache[hoverInfo.projectId].error}</div>}
+                  {previewCache[hoverInfo.projectId].data && (() => {
+                    const mod = previewCache[hoverInfo.projectId].data.data || previewCache[hoverInfo.projectId].data;
+                    return (
+                      <div>
+                        <div style={{ display:'flex', gap:10 }}>
+                          {mod.logo?.thumbnailUrl && <img src={mod.logo.thumbnailUrl} alt={mod.name} style={{ width:64, height:64, objectFit:'cover', borderRadius:4, border:'1px solid #222' }} />}
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontWeight:600, fontSize:13 }}>{mod.name}</div>
+                            <div style={{ fontSize:11, opacity:.7 }}>{mod.authors?.map((a:any)=>a.name).join(', ')}</div>
+                            <div style={{ fontSize:11, marginTop:4 }}>Downloads: {mod.downloadCount}</div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop:8, fontSize:11, lineHeight:1.4, maxHeight:140, overflow:'auto' }}>{mod.summary || mod.description || 'No description.'}</div>
+                        {mod.categories && <div style={{ marginTop:6, fontSize:10, display:'flex', flexWrap:'wrap', gap:4 }}>{mod.categories.map((c:any)=>(<span key={c.id} style={{ background:'#2a2f36', padding:'2px 6px', borderRadius:3 }}>{c.name}</span>))}</div>}
+                        {mod.latestFiles && mod.latestFiles.length>0 && <div style={{ marginTop:6, fontSize:10 }}>Latest: {mod.latestFiles[0].displayName || mod.latestFiles[0].fileName}</div>}
+                        {mod.links?.websiteUrl && <div style={{ marginTop:6 }}><a href={mod.links.websiteUrl} target="_blank" rel="noreferrer" style={{ fontSize:11 }}>Open on CurseForge</a></div>}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+              {/* Steam mod preview */}
+              {hoverInfo.steamModId && steamPreviewCache[hoverInfo.steamModId] && (
+                <>
+                  {steamPreviewCache[hoverInfo.steamModId].loading && (
+                    <div>
+                      <div className="cf-skel-row" style={{ height:16, width:'70%', marginBottom:6 }} />
+                      <div className="cf-skel-row" style={{ height:12, width:'50%', marginBottom:4 }} />
+                      <div className="cf-skel-row" style={{ height:12, width:'60%' }} />
+                    </div>
+                  )}
+                  {steamPreviewCache[hoverInfo.steamModId].error && <div style={{ color:'#d27d2c' }}>Error: {steamPreviewCache[hoverInfo.steamModId].error}</div>}
+                  {steamPreviewCache[hoverInfo.steamModId].data && (() => {
+                    const info = steamPreviewCache[hoverInfo.steamModId].data;
+                    const sizeMB = info.sizeBytes ? (info.sizeBytes / (1024*1024)).toFixed(2) : '0';
+                    return (
+                      <div>
+                        <div style={{ fontWeight:600, fontSize:13 }}>Steam Workshop Mod {info.modId}</div>
+                        <div style={{ fontSize:11, opacity:.7 }}>Directory: {info.exists ? 'Present' : 'Missing'}</div>
+                        {info.exists && <div style={{ fontSize:11, marginTop:4 }}>Files: {info.fileCount} · Size: {sizeMB} MB</div>}
+                        <div style={{ fontSize:10, marginTop:6, opacity:.65 }}>Path: {info.path}</div>
+                        <div style={{ marginTop:8, fontSize:10 }}>Tip: Add a CurseForge mod via search to enrich metadata.</div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+            {/* Inline keyframes for fade animations */}
+            <style>{`@keyframes fadeInCF { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} } @keyframes fadeOutCF { from { opacity:1; } to { opacity:0; } } @keyframes cfPulse { 0% { background-color:#2a2f36;} 50% { background-color:#323840;} 100% { background-color:#2a2f36;} } .cf-skel-row,.cf-skel-thumb { background:#2a2f36; animation: cfPulse 1.4s ease-in-out infinite; }`}</style>
+          </div>
+        )}
       </div>
     </section>
   );

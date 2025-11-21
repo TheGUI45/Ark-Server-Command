@@ -1,6 +1,6 @@
 {
   "name": "asa-server-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cross-platform Ark Survival Ascended server manager (secure, no paywall)",
   "private": true,
   "type": "module",

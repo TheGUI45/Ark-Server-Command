@@ -37,6 +37,7 @@ const mods = {
       modIds,
       outDir,
     }),
+  getSteamModInfo: (serverId: string, modId: string) => ipcRenderer.invoke('mods:getSteamModInfo', { serverId, modId })
 };
 
 const backup = {
@@ -140,6 +141,10 @@ const api = {
   },
   autoupdate: {
     toggle: (enabled: boolean) => ipcRenderer.invoke('autoupdate:toggle', enabled)
+  },
+  appupdate: {
+    run: () => ipcRenderer.invoke('app:updateFromGit'),
+    restart: () => ipcRenderer.invoke('app:restart')
   },
   saves: {
     cleanup: (serverId: string) => ipcRenderer.invoke('saves:cleanup', serverId)

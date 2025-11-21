@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, session, dialog } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 console.log('[main] starting main process');
 // (path import moved to top)
 import { URL } from 'node:url';
@@ -426,6 +427,53 @@ ipcMain.handle('saves:cleanup', (_e, serverId: string) => {
   return saveCleanup.cleanup(serverId);
 });
 
+// App update from Git repository (development / unpacked only)
+ipcMain.handle('app:updateFromGit', async () => {
+  const appPath = app.getAppPath();
+  const gitDir = path.join(appPath, '.git');
+  if (!fs.existsSync(gitDir)) {
+    return { ok: false, error: 'Git repository not found (.git missing). Packaged builds are read-only.' };
+  }
+  if (settings.get().offlineMode) {
+    return { ok: false, error: 'Offline Mode enabled. Disable to perform update.' };
+  }
+  const runGit = (args: string[]) => new Promise<{ code: number|null; output: string }>((resolve) => {
+    try {
+      const proc = spawn('git', args, { cwd: appPath });
+      const chunks: string[] = [];
+      proc.stdout.on('data', (d) => chunks.push(String(d)));
+      proc.stderr.on('data', (d) => chunks.push(String(d)));
+      proc.on('close', (code) => resolve({ code, output: chunks.join('') }));
+    } catch (e:any) {
+      resolve({ code: -1, output: 'Spawn failed: ' + String(e?.message||e) });
+    }
+  });
+  const steps: Array<{ step: string; args: string[]; result?: any }> = [
+    { step: 'fetch', args: ['fetch', '--all', '--prune'] },
+    { step: 'pull', args: ['pull', '--rebase'] }
+  ];
+  for (const s of steps) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await runGit(s.args);
+    s.result = res;
+    if (res.code !== 0) {
+      return { ok: false, step: s.step, output: res.output, code: res.code };
+    }
+  }
+  return { ok: true, steps };
+});
+
+// App restart helper (will relaunch and exit)
+ipcMain.handle('app:restart', () => {
+  try {
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  } catch (e:any) {
+    return { ok: false, error: String(e?.message||e) };
+  }
+});
+
 // Backups IPC
 ipcMain.handle('backup:list', () => backups.list());
 ipcMain.handle('backup:upsert', (_e, job) => backups.upsert(job));
@@ -492,3 +540,45 @@ ipcMain.handle(
     return mods.downloadOrUpdate({ steamcmdDir: steamDir, appId: args.appId ?? 2399830, modIds: args.modIds, outDir });
   }
 );
+// Basic Steam workshop mod info (size, file count) for hover preview
+ipcMain.handle('mods:getSteamModInfo', (_e, args: { serverId: string; modId: string }) => {
+  const state = profiles.list();
+  const srv = state.servers.find(s => s.id === args.serverId);
+  if (!srv) throw new Error('Server not found');
+  const root = settings.get().workspaceRoot;
+  const cachePath = path.join(root, 'steam-mod-info-cache.json');
+  let cache: Record<string, { ts: number; exists: boolean; path: string; sizeBytes: number; fileCount: number }> = {};
+  try {
+    if (fs.existsSync(cachePath)) cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+  } catch {}
+  const key = `${args.serverId}:${args.modId}`;
+  const now = Date.now();
+  const ttlMs = 30 * 60 * 1000; // 30 minutes
+  if (cache[key] && (now - cache[key].ts) < ttlMs) {
+    const entry = cache[key];
+    return { ok: true, modId: args.modId, exists: entry.exists, path: entry.path, sizeBytes: entry.sizeBytes, fileCount: entry.fileCount, cached: true };
+  }
+  const modsDir = path.join(srv.installDir, 'ShooterGame', 'Content', 'Mods');
+  const targetDir = path.join(modsDir, args.modId);
+  const exists = fs.existsSync(targetDir);
+  let sizeBytes = 0;
+  let fileCount = 0;
+  if (exists) {
+    const stack: string[] = [targetDir];
+    while (stack.length) {
+      const current = stack.pop()!;
+      try {
+        const entries = fs.readdirSync(current, { withFileTypes: true });
+        for (const e of entries) {
+          const full = path.join(current, e.name);
+          if (e.isDirectory()) stack.push(full); else {
+            fileCount++; try { sizeBytes += fs.statSync(full).size; } catch {}
+          }
+        }
+      } catch {}
+    }
+  }
+  cache[key] = { ts: now, exists, path: targetDir, sizeBytes, fileCount };
+  try { fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2)); } catch {}
+  return { ok: true, modId: args.modId, exists, path: targetDir, sizeBytes, fileCount, cached: false };
+});

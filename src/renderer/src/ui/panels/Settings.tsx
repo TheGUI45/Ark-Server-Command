@@ -29,6 +29,10 @@ export function SettingsPanel() {
   const [webApiAdvBody, setWebApiAdvBody] = useState('{"example":true}');
   const [webApiAdvResult, setWebApiAdvResult] = useState('');
   const [webApiAdvBusy, setWebApiAdvBusy] = useState(false);
+  // App update state
+  const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  const [appUpdateLog, setAppUpdateLog] = useState('');
+  const [appUpdateOk, setAppUpdateOk] = useState<boolean | null>(null);
 
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   useEffect(() => {
@@ -289,6 +293,31 @@ export function SettingsPanel() {
           <button className="btn-primary" onClick={save}>Save Settings</button>
           <span style={{ marginLeft: 8, opacity: 0.7 }}>{saved}</span>
         </div>
+        <fieldset style={{ border:'1px solid var(--border)', padding:12, borderRadius:'var(--radius)' }}>
+          <legend style={{ padding:'0 6px', fontSize:12 }}>Application Update</legend>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            <button disabled={appUpdateBusy || offlineMode} onClick={async ()=>{
+              setAppUpdateBusy(true); setAppUpdateLog(''); setAppUpdateOk(null);
+              try {
+                const res = await (window as any).api.appupdate.run();
+                if (!res.ok) {
+                  setAppUpdateOk(false);
+                  setAppUpdateLog(`[${res.step||'error'}] code=${res.code} \n${res.output || res.error}`);
+                } else {
+                  setAppUpdateOk(true);
+                  const logLines = res.steps.map((s:any)=>`> git ${s.args.join(' ')}\n${s.result.output.trim()}`).join('\n\n');
+                  setAppUpdateLog(logLines);
+                }
+              } catch (e:any) {
+                setAppUpdateOk(false); setAppUpdateLog('Exception: ' + String(e?.message||e));
+              } finally { setAppUpdateBusy(false); }
+            }}>{appUpdateBusy ? 'Updating…' : 'Update from Git'}</button>
+            <button disabled={appUpdateBusy || !appUpdateOk} onClick={async ()=>{ const r = await (window as any).api.appupdate.restart(); if(!r.ok) alert('Restart failed: '+r.error); }}>Restart App</button>
+            {offlineMode && <span style={{ fontSize:11, opacity:.7 }}>Offline Mode blocks update.</span>}
+          </div>
+          <small style={{ display:'block', marginTop:4 }}>Runs git fetch --all --prune and git pull --rebase in application directory (development/unpacked only).</small>
+          {appUpdateLog && <pre style={{ marginTop:8, maxHeight:200, overflow:'auto', background:'#111', padding:8, fontSize:11, whiteSpace:'pre-wrap' }}>{appUpdateLog}</pre>}
+        </fieldset>
       </div>
     </section>
   );
