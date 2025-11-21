@@ -479,6 +479,38 @@ ipcMain.handle('app:updateFromGit', async () => {
   if (!preflight.ok) {
     return { ok: false, error: 'git --version failed. Ensure Git is installed and on PATH. ' + preflight.output };
   }
+  
+  // Check if remote 'origin' is configured
+  const checkRemote = await new Promise<{ ok: boolean; output: string }>((resolve) => {
+    try {
+      const proc = spawn('git', ['remote', 'get-url', 'origin'], { cwd: appPath });
+      const chunks: string[] = [];
+      proc.stdout.on('data', d => chunks.push(String(d)));
+      proc.stderr.on('data', d => chunks.push(String(d)));
+      proc.on('close', code => resolve({ ok: code === 0, output: chunks.join('').trim() }));
+    } catch (e:any) {
+      resolve({ ok: false, output: String(e?.message||e) });
+    }
+  });
+  
+  // If no remote, add it
+  if (!checkRemote.ok) {
+    const addRemote = await new Promise<{ ok: boolean; output: string }>((resolve) => {
+      try {
+        const proc = spawn('git', ['remote', 'add', 'origin', 'https://github.com/TheGUI45/Ark-Server-Command.git'], { cwd: appPath });
+        const chunks: string[] = [];
+        proc.stdout.on('data', d => chunks.push(String(d)));
+        proc.stderr.on('data', d => chunks.push(String(d)));
+        proc.on('close', code => resolve({ ok: code === 0, output: chunks.join('').trim() }));
+      } catch (e:any) {
+        resolve({ ok: false, output: String(e?.message||e) });
+      }
+    });
+    if (!addRemote.ok) {
+      return { ok: false, error: 'Failed to add remote origin: ' + addRemote.output };
+    }
+  }
+  
   const runGit = (args: string[]) => new Promise<{ code: number|null; output: string }>((resolve) => {
     try {
       const proc = spawn('git', args, { cwd: appPath });
@@ -492,7 +524,7 @@ ipcMain.handle('app:updateFromGit', async () => {
   });
   const steps: Array<{ step: string; args: string[]; result?: any }> = [
     { step: 'fetch', args: ['fetch', '--all', '--prune'] },
-    { step: 'pull', args: ['pull', '--rebase'] }
+    { step: 'pull', args: ['pull', '--rebase', 'origin', 'main'] }
   ];
   for (const s of steps) {
     // eslint-disable-next-line no-await-in-loop
