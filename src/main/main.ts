@@ -104,7 +104,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
-      devTools: true, // Enable DevTools for debugging
+      devTools: !app.isPackaged,
       spellcheck: false,
     },
   });
@@ -112,8 +112,6 @@ function createWindow() {
   win.on('ready-to-show', () => {
     console.log('[main] ready-to-show');
     win.show();
-    // Open DevTools for debugging
-    win.webContents.openDevTools({ mode: 'detach' });
   });
   win.removeMenu();
   const createdAt = Date.now();
